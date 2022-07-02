@@ -52,6 +52,8 @@ provide more top-level type signatures, especially when learning Haskell.
 {-# LANGUAGE InstanceSigs #-}
 
 module Chapter3 where
+import Data.List (elemIndex)
+import Data.Maybe (fromMaybe)
 
 {-
 =🛡= Types in Haskell
@@ -344,6 +346,13 @@ of a book, but you are not limited only by the book properties we described.
 Create your own book type of your dreams!
 -}
 
+data Book = MkBook
+  { bookTitle  :: String,
+    bookAuthor :: String,
+    bookRating :: Int,
+    bookPages  :: Int
+  } deriving (Show)
+
 {- |
 =⚔️= Task 2
 
@@ -375,6 +384,24 @@ after the fight. The battle has the following possible outcomes:
 ♫ NOTE: In this task, you need to implement only a single round of the fight.
 
 -}
+
+data Knight = MkKnight
+  { knightHealth :: Int
+  , knightAttack :: Int
+  , knightGold   :: Int
+  }
+
+data Monster = MkMonster
+  { monsterHealth :: Int
+  , monsterAttack :: Int
+  , monsterGold   :: Int
+  }
+
+fight :: Knight -> Monster -> Int
+fight k m
+  | knightAttack k >= monsterHealth m = knightGold k + monsterGold m
+  | monsterAttack m >= knightHealth k = -1
+  | otherwise                         = knightGold k
 
 {- |
 =🛡= Sum types
@@ -446,7 +473,6 @@ acceptLoot loot = case loot of
     WizardStaff _ _ -> "What?! I'm not a wizard, take it back!"
 @
 
-
 To sum up all the above, a data type in Haskell can have zero or more
 constructors, and each constructor can have zero or more fields. This altogether
 gives us product types (records with fields) and sum types (alternatives). The
@@ -461,6 +487,18 @@ and provide more flexibility when working with data types.
 Create a simple enumeration for the meal types (e.g. breakfast). The one who
 comes up with the most number of names wins the challenge. Use your creativity!
 -}
+
+data Meal
+  = Breakfast
+  | Lunch
+  | Dinner
+  | Brunch
+  | Snak
+
+data Breakfast
+  = ScrambledEggs Int
+  | AvocadoToast
+  | Porridge
 
 {- |
 =⚔️= Task 4
@@ -481,6 +519,44 @@ After defining the city, implement the following functions:
    complicated task, walls can be built only if the city has a castle
    and at least 10 living __people__ inside in all houses of the city in total.
 -}
+
+data MagicalCity = MagicalCity
+  { magicalCityCastle :: Castle
+  , magicalCityMainBuilding :: MainBuilding
+  , magicalCityHouses :: [House]
+  }
+
+data Castle
+  = None
+  | CastleNoWalls String
+  | CastleWithWalls String
+
+data MainBuilding
+  = Church
+  | Library
+
+data House = One | Two | Three | Four
+
+buildCastle :: String -> MagicalCity -> MagicalCity
+buildCastle name city = city { magicalCityCastle = CastleWithWalls name }
+
+buildHouse :: House -> MagicalCity -> MagicalCity
+buildHouse house city = city { magicalCityHouses = house : magicalCityHouses city }
+
+buildWalls :: MagicalCity -> MagicalCity
+buildWalls city = case magicalCityCastle city of
+  CastleNoWalls name ->
+    if sum (map countHouses (magicalCityHouses city)) >= 10
+    then city { magicalCityCastle = CastleWithWalls name }
+    else city
+    where
+      countHouses :: House -> Int
+      countHouses house = case house of
+        One -> 1
+        Two -> 2
+        Three -> 3
+        Four -> 4
+  _ -> city
 
 {-
 =🛡= Newtypes
@@ -563,21 +639,29 @@ introducing extra newtypes.
     implementation of the "hitPlayer" function at all!
 -}
 data Player = Player
-    { playerHealth    :: Int
-    , playerArmor     :: Int
-    , playerAttack    :: Int
-    , playerDexterity :: Int
-    , playerStrength  :: Int
+    { playerHealth    :: Health
+    , playerArmor     :: Armor
+    , playerAttack    :: Attack
+    , playerDexterity :: Dexterity
+    , playerStrength  :: Strength
     }
 
-calculatePlayerDamage :: Int -> Int -> Int
-calculatePlayerDamage attack strength = attack + strength
+newtype Health = Health Int
+newtype Armor = Armor Int
+newtype Attack = Attack Int
+newtype Dexterity = Dexterity Int
+newtype Strength = Strength Int
+newtype Damage = Damage Int
+newtype Defence = Defence Int
 
-calculatePlayerDefense :: Int -> Int -> Int
-calculatePlayerDefense armor dexterity = armor * dexterity
+calculatePlayerDamage :: Attack -> Strength -> Damage
+calculatePlayerDamage (Attack a) (Strength s)= Damage (a + s)
 
-calculatePlayerHit :: Int -> Int -> Int -> Int
-calculatePlayerHit damage defense health = health + defense - damage
+calculatePlayerDefense :: Armor -> Dexterity -> Defence
+calculatePlayerDefense (Armor a) (Dexterity d) = Defence (a * d)
+
+calculatePlayerHit :: Damage -> Defence -> Health -> Health
+calculatePlayerHit (Damage dmg) (Defence def) (Health h) = Health (h + def - dmg)
 
 -- The second player hits first player and the new first player is returned
 hitPlayer :: Player -> Player -> Player
@@ -711,7 +795,7 @@ data [] a
 
 Immediately we know what all of that means!
 The ":" is simply the constructor name for the list. Constructors in Haskell can
-be defined as infix operators as well (i.e. be written after the first argument,
+be defined as iunfix operators as well (i.e. be written after the first argument,
 the same way we write `1 + 2` and not `+ 1 2`), but only if they start with a
 colon ":". The ":" is taken by lists. Now you see why we were able to pattern
 match on it?
@@ -754,6 +838,15 @@ parametrise data types in places where values can be of any general type.
 🕯 HINT: 'Maybe' that some standard types we mentioned above are useful for
   maybe-treasure ;)
 -}
+
+data DragonLair treasure power = DragonLair
+  { dragonLairdDragon :: Dragon power
+  , dragonLairChest   :: Maybe (Chest treasure)
+  }
+
+newtype Chest a = Chest a
+
+newtype Dragon power = Dragon power
 
 {-
 =🛡= Typeclasses
@@ -912,6 +1005,21 @@ Implement instances of "Append" for the following types:
 class Append a where
     append :: a -> a -> a
 
+instance Append Gold where
+  append :: Gold -> Gold -> Gold
+  append (Gold x) (Gold y) = Gold (x + y)
+
+instance Append [a] where
+  append :: [a] -> [a] -> [a]
+  append = (++)
+
+instance (Append a) => Append (Maybe a) where
+  append :: Maybe a -> Maybe a -> Maybe a
+  append Nothing x = x
+  append x Nothing = x
+  append (Just x) (Just y) = Just (append x y)
+
+newtype Gold = Gold Int
 
 {-
 =🛡= Standard Typeclasses and Deriving
@@ -972,6 +1080,27 @@ implement the following functions:
 
 🕯 HINT: to implement this task, derive some standard typeclasses
 -}
+
+data DayOfWeek
+  = Mon
+  | Tue
+  | Wed
+  | Thu
+  | Fri
+  | Sat
+  | Sun
+  deriving (Enum, Bounded, Eq, Show)
+
+isWeekend :: DayOfWeek -> Bool
+isWeekend day = day == Sat || day == Sun
+
+nextDay :: DayOfWeek -> DayOfWeek
+nextDay day
+  | maxBound == day = minBound
+  | otherwise       = succ day
+
+daysToParty :: DayOfWeek -> Int
+daysToParty day = fromMaybe 0 $ Data.List.elemIndex Fri $ enumFrom day ++ enumFrom Mon
 
 {-
 =💣= Task 9*
